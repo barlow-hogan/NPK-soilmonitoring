@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sensor Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chart-container {
+            width: 300px;
+            height: 200px;
+            margin: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .chart-container canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .reading-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        #chart-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Humidity, Temperature, PH, NPK Sensor Readings</h1>
+
+    <div id="chart-grid">
+        <div id="temperatureChartContainer" class="chart-container">
+            <p>Temperature: <span id="temperatureValue" class="reading-value">0</span>°C</p>
+            <canvas id="temperatureChart"></canvas>
+        </div>
+
+        <div id="humidityChartContainer" class="chart-container">
+            <p>Humidity: <span id="humidityValue" class="reading-value">0</span>%</p>
+            <canvas id="humidityChart"></canvas>
+        </div>
+
+        <div id="phChartContainer" class="chart-container">
+            <p>PH: <span id="phValue" class="reading-value">0</span></p>
+            <canvas id="phChart"></canvas>
+        </div>
+
+        <div id="nChartContainer" class="chart-container">
+            <p>N: <span id="nValue" class="reading-value">0</span></p>
+            <canvas id="nChart"></canvas>
+        </div>
+
+        <div id="pChartContainer" class="chart-container">
+            <p>P: <span id="pValue" class="reading-value">0</span></p>
+            <canvas id="pChart"></canvas>
+        </div>
+
+        <div id="kChartContainer" class="chart-container">
+            <p>K: <span id="kValue" class="reading-value">0</span></p>
+            <canvas id="kChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Function to create a donut chart
+        function createDonutChart(canvasId, valueId, parameterName, minValue, maxValue) {
+            var ctx = document.getElementById(canvasId).getContext('2d');
+            var chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [parameterName, ''],
+                    datasets: [{
+                        data: [0, maxValue - minValue],
+                        backgroundColor: ['rgba(75, 192, 192, 0.2)', 'rgba(200, 200, 200, 0.2)'],
+                        borderColor: ['rgba(75, 192, 192, 1)', 'rgba(200, 200, 200, 1)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    rotation: -90,
+                    circumference: 180,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    }
+                }
+            });
+
+            // Function to update the chart with the latest data
+            function updateChartData(value) {
+                var adjustedValue = value - minValue;
+                chart.data.datasets[0].data = [adjustedValue, maxValue - minValue - adjustedValue];
+                chart.update();
+                document.getElementById(valueId).textContent = value.toFixed(2);
+            }
+
+            return updateChartData;
+        }
+
+        // Function to create a line chart
+        function createLineChart(canvasId, valueId, parameterName, minValue, maxValue) {
+            var ctx = document.getElementById(canvasId).getContext('2d');
+            var chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: parameterName,
+                        data: [],
+                        backgroundColor: 'rgba(75, 192, 192, 0.4)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            min: minValue,
+                            max: maxValue
+                        }
+                    }
+                }
+            });
+
+            // Function to update the chart with the latest data
+            function updateChartData(value) {
+                chart.data.labels.push(new Date().toLocaleTimeString());
+                chart.data.datasets[0].data.push(value);
+                if (chart.data.labels.length > 10) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+                chart.update();
+                document.getElementById(valueId).textContent = value.toFixed(2);
+            }
+
+            return updateChartData;
+        }
+
+        // Create donut charts for temperature, humidity, and PH
+        var updateTemperatureChart = createDonutChart('temperatureChart', 'temperatureValue', 'Temperature', -40, 100);
+        var updateHumidityChart = createDonutChart('humidityChart', 'humidityValue', 'Humidity', 0, 100);
+        var updatePhChart = createDonutChart('phChart', 'phValue', 'PH', 0, 14);
+
+        // Create line charts for N, P, K
+        var updateNChart = createLineChart('nChart', 'nValue', 'N', 0, 20);
+        var updatePChart = createLineChart('pChart', 'pValue', 'P', 0, 20);
+        var updateKChart = createLineChart('kChart', 'kValue', 'K', 0, 20);
+
+        // Function to fetch and update all charts
+        function updateAllCharts() {
+            fetch('/api/sensor_data')
+                .then(response => response.json())
+                .then(data => {
+                    updateTemperatureChart(data.temperature);
+                    updateHumidityChart(data.humidity);
+                    updatePhChart(data.ph);
+                    updateNChart(data.n);
+                    updatePChart(data.p);
+                    updateKChart(data.k);
+                })
+                .catch(error => console.error('Error fetching sensor data:', error));
+        }
+
+        // Update all charts initially
+        updateAllCharts();
+
+        // Update all charts every 2 seconds
+        setInterval(updateAllCharts, 2000);
+    </script>
+</body>
+</html>
